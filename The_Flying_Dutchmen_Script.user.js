@@ -46,7 +46,7 @@
 		}
 		
 		const TFD_STYLES = `
-		#close_general_notificationTFD {
+#close_general_notificationTFD {
     position: absolute;
     top: 2%;
     right: 1%;
@@ -59,6 +59,24 @@
 }
 
 #general_notificationTFD {
+    margin-bottom: 10px;
+    padding-left: 6%;
+    padding-right: 6%;
+}
+
+#close_general_notificationupdateTFD {
+    position: absolute;
+    top: 2%;
+    right: 1%;
+    font-size: 20px;
+	text-decoration: none!important;
+}
+
+#generalNotificationWrapperupdateTFD {
+    position: relative;
+}
+
+#general_notificationupdateTFD {
     margin-bottom: 10px;
     padding-left: 6%;
     padding-right: 6%;
@@ -85,9 +103,9 @@
                             version   = match[1];
 
                             if (compareVersions(GM_info.script.version, version) < 0) {
-                                var message = "<li class=\"chat_notification\">The Flying Dutchmen Script has been updated to version " + version + "! <a href=\"https://github.com/KaizokuBento/AvaburTFD/raw/master/The_Flying_Dutchmen_Script.user.js\" target=\"_blank\">Update</a> | <a href=\"https://github.com/KaizokuBento/notifications-of-avabur/commits/master\" target=\"_blank\">Changelog</a></li>";
-								// TODO: Handle chat direction like ToA does
-								$("#chatMessageList").prepend(message);
+								let updateAnnouncement = '<div id="generalNotificationWrapperupdateTFD" style="display: block;"><a id="close_general_notificationupdateTFD">×</a><h5 class="border2 center" id="general_notificationupdateTFD">The Flying Dutchmen Script has been updated to version ' + version + '! <a href=\"https://github.com/KaizokuBento/AvaburTFD/raw/master/The_Flying_Dutchmen_Script.user.js\" target=\"_blank\">Update</a> | <a href=\"https://github.com/KaizokuBento/notifications-of-avabur/commits/master\" target=\"_blank\">Changelog</a></h5></div>';
+								
+								document.querySelector("#contentWrapper").insertAdjacentHTML('afterbegin', updateAnnouncement);
                             } else {
                                 setTimeout(fn.backwork.checkForUpdate, VARIABLES.checkForUpdateTimer);
                             }
