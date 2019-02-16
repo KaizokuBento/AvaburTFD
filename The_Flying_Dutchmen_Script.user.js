@@ -15,8 +15,10 @@
 // @require      https://rawgit.com/ujjwalguptaofficial/JsStore/2.3.1/dist/jsstore.min.js
 // @require      https://cdnjs.cloudflare.com/ajax/libs/spectrum/1.8.0/spectrum.min.js
 // @updateURL    https://github.com/KaizokuBento/AvaTFD/raw/master/The_Flying_Dutchmen_Script.user.js
+// @connect      theflyingdutchmenclan.000webhostapp.com
 // @grant        GM_addStyle
 // @grant        GM_info
+// @grant        GM_xmlhttpRequest
 // @run-at       document-idle
 // ==/UserScript==
 
@@ -42,7 +44,8 @@
 
 		const TEMPLATES = { // all the new/changed HTML for the userscript
 			tfdAnnouncement : `<div id="generalNotificationWrapperTFD" style="display: block;"><a id="close_general_notificationTFD">×</a><h5 class="border2 center" id="general_notificationTFD">Fri, Feb 15 @ 14:18:40 - Bento is cool.</h5></div>`,
-			tfdSettingsMenu : `<div class="col-md-12" id="tfdsettingsmenuwrapper" style="display: none;"><div class="mt10"><h3 class="center nobg">Bento</h3><div>is cool</div></div></div>`,
+			tfdSettingsMenu : `<div class="col-md-12" id="tfdsettingsmenuwrapper" style="display: none;"><div class="col-md-6"><h3 class="center nobg">TFD Settings</h3><table id="tfdsettingspage"><tbody><tr><td><label><input type="checkbox" class="tfdsetting" data-key="clan_notifications"/>Clan Announcements</label></td><tr><label><input type="checkbox" class="tfdsetting" data-key="clan_event_window"/>Clan Events</label></tr></tbody></table></div></div>
+`,
 		}
 		
 		const TFD_STYLES = `
@@ -81,7 +84,38 @@
 
 		const fn = { // all the functions for the script
 			helpers: {
-				
+				toggleSetting(key, set = false) {
+                    if (typeof set === 'boolean') {
+                        let element = document.querySelector(`.tfdsetting[data-key="${key}"]`);
+                        if (element && element.type === 'checkbox') {
+                            element.checked = set;
+                        }
+                    }
+                },
+                populateToSettingsTemplate() {
+                    for (let key in VARIABLES.userSettings) {
+                        if (!VARIABLES.userSettings.hasOwnProperty(key)) {
+                            continue;
+                        }
+                        let value = VARIABLES.userSettings[key];
+                        if (typeof value === 'boolean') {
+                            fn.helpers.toggleSetting(key, value, false);
+                            continue;
+                        }
+
+                        if (true === _.isPlainObject(value)) {
+                            for (let key2 in value) {
+                                if (!value.hasOwnProperty(key2)) {
+                                    continue;
+                                }
+                                let value2 = value[key2];
+                                if (typeof value2 === 'boolean') {
+                                    fn.helpers.toggleSetting(`${key}-${key2}`, value2, false);
+                                }
+                            }
+                        }
+                    }
+                },
 			},
 			/** background stuff */
 			backwork : { // backgrounds stuff
@@ -105,13 +139,40 @@
 				},
 
 				loadSettings() { // initial settings on first run and setting the variable settings key
-					
+					let settings = localStorage.getItem(SETTINGS_SAVE_KEY);
+
+                    try {
+                        settings = JSON.parse(settings);
+
+                        VARIABLES.userSettings = _.defaultsDeep(settings, DEFAULT_USER_SETTINGS);
+                    } catch (e) {
+                        log('Failed to parse settings ..');
+                    }
+                    fn.helpers.populateToSettingsTemplate();
+                    fn.backwork.saveSettings();
 				},
 				saveSettings() { // Save changed settings
-					
+					localStorage.setItem(SETTINGS_SAVE_KEY, JSON.stringify(VARIABLES.userSettings));
 				},
-				populateSettingsPage() { // checks all settings checkboxes that are true in the settings
-                    
+				processSettingChange(element, ...hierarchy) { // Process the changed settings in the settings menu
+                    if (1 === hierarchy.length) {
+                        let setting = hierarchy.pop();
+                        if (!VARIABLES.userSettings.hasOwnProperty(setting)) {
+                            return false;
+                        }
+                        if (element.type === 'checkbox') {
+                            VARIABLES.userSettings[setting] = !!element.checked;
+                        }
+                    } else if (hierarchy.length === 2) {
+                        let [top, sub] = hierarchy;
+                        if (!VARIABLES.userSettings.hasOwnProperty(top) || !VARIABLES.userSettings[top].hasOwnProperty(sub)) {
+                            return false;
+                        }
+                        if (element.type === 'checkbox') {
+                            VARIABLES.userSettings[top][sub] = !!element.checked;
+                        }
+                    }
+                    fn.backwork.saveSettings();
                 },
 
 				setupHTML() { // injects the HTML changes from TEMPLATES into the site
@@ -134,11 +195,11 @@
 
 				startup() { // All the functions that are run to start the script on Pokéfarm
 					return {
-						'loading Settings'		: fn.backwork.loadSettings,
 						'checking for update'	: fn.backwork.checkForUpdate,
 						'setting up HTML' 		: fn.backwork.setupHTML,
 						'setting up CSS'		: fn.backwork.setupCSS,
 						'setting up Observers'	: fn.backwork.setupObservers,
+						'loading Settings'		: fn.backwork.loadSettings,
 					}
 				},
 				init() { // Starts all the functions.
@@ -156,11 +217,7 @@
 
 			/** public stuff */
 			API : { // the actual seeable and interactable part of the userscript
-				closeClanAnnouncement() {
-					$('#generalNotificationWrapperTFD').css({"display":"none"})
-				},
-				
-				openSettingsMenu() {
+				openSettingsMenu() { //open the scripts settings menu in the clan hall
 					//show the scripts menu
 					$('#tfdsettingsmenuwrapper').css({"display":"block"}); 
 					
@@ -183,11 +240,30 @@
 					//add the active class to the scripts settings menu
 					$('#tfdviewsettingsmenu').addClass('active');
 				},
-				
-				closeSettingsMenu(clickedMenuId) {
+				closeSettingsMenu(clickedMenuId) { //close the scripts settings menu in the clan hall
 					if(clickedMenuId != 'tfdviewsettingsmenu') {
 						$('#tfdsettingsmenuwrapper').css({"display":"none"});
 					}
+				},
+				
+				changeSetting(setting, element) { //change a script settings in the clan hall
+                    fn.backwork.processSettingChange(element, ...setting.split('-'));
+                },
+				
+				testXmlHttp() {
+					GM_xmlhttpRequest ( {
+						method: "GET",
+						url: "https://theflyingdutchmenclan.000webhostapp.com/test.html",
+						onload: function (response) {
+							let criticTxt = response.responseText;
+							$('#generalNotificationWrapperTFD').remove();
+							document.querySelector("#contentWrapper").insertAdjacentHTML('afterbegin', '<div id="generalNotificationWrapperTFD" style="display: block;"><a id="close_general_notificationTFD">×</a><h5 class="border2 center" id="general_notificationTFD">'+criticTxt+'</h5></div>');
+						}
+					} );
+				},
+				
+				closeClanAnnouncement() { //closes the Clan announcement
+					$('#generalNotificationWrapperTFD').css({"display":"none"})
 				},
 				
 			}, // end of API
@@ -198,16 +274,24 @@
 		return fn.API;
 	})(); // end of TFD function
 	
-	$(document).on('click', '#close_general_notificationTFD', function () { //Close clan announcement
-        TFD.closeClanAnnouncement();
-    });
-	
 	$(document).on('click', '#tfdviewsettingsmenu', function () { //Open scripts settings menu
         TFD.openSettingsMenu();
     });
 	
 	$(document).on('click', '#clanLinksWrapper>span>a, #clanLinksWrapper>a', function () { //Close scripts settings menu
         TFD.closeSettingsMenu(this.id);
+    });
+	
+	$(document).on('change', '.tfdsetting', function () { //Change script settings
+        TFD.changeSetting(this.getAttribute('data-key'), this);
+    });
+	
+	$(document).on('click', '#close_general_notificationTFD', function () { //Close clan announcement
+        TFD.closeClanAnnouncement();
+    });
+	
+	$(document).on('click', '#general_notificationTFD', function () { //test GET data
+        TFD.testXmlHttp();
     });
 
 })(jQuery);
