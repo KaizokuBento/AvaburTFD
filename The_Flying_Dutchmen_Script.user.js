@@ -16,6 +16,7 @@
 // @require      https://cdnjs.cloudflare.com/ajax/libs/spectrum/1.8.0/spectrum.min.js
 // @updateURL    https://github.com/KaizokuBento/AvaTFD/raw/master/The_Flying_Dutchmen_Script.user.js
 // @grant        GM_addStyle
+// @grant        GM_info
 // @run-at       document-idle
 // ==/UserScript==
 
