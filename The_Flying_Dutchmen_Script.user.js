@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         The Flying Dutchmen Clanscript
 // @namespace    http://tampermonkey.net/
-// @version      0.1
+// @version      0.2
 // @description  An userscript for the members of The Flying Dutchmen clan in Avabur with extra announcements and events features!
 // @author       Bento
 // @match        https://*.avabur.com/game*
@@ -23,6 +23,8 @@
     'use strict';
 	
 	let TFD = (function TFD() {
+		
+		const INTERNAL_UPDATE_URI = 'https://api.github.com/repos/KaizokuBento/AvaburTFD/contents/The_Flying_Dutchmen_Script.user.js';
 
 		const DEFAULT_USER_SETTINGS = { // default settings when the script gets loaded the first time
 			clan_notifications : true,
@@ -33,6 +35,8 @@
 
 		const VARIABLES = { // all the variables that are going to be used in fn
 			userSettings : DEFAULT_USER_SETTINGS,
+			
+			checkForUpdateTimer: 6 * 60 * 60 * 1000, // 6 hours
 		}
 
 		const TEMPLATES = { // all the new/changed HTML for the userscript
@@ -71,7 +75,22 @@
 			/** background stuff */
 			backwork : { // backgrounds stuff
 				checkForUpdate() {
-					
+					let version = '';
+
+                    fetch(INTERNAL_UPDATE_URI)
+                        .then(response => response.json())
+                        .then(data => {
+                            let match = atob(data.content).match(/\/\/\s+@version\s+([^\n]+)/);
+                            version   = match[1];
+
+                            if (compareVersions(GM_info.script.version, version) < 0) {
+                                var message = "<li class=\"chat_notification\">The Flying Dutchmen Script has been updated to version " + version + "! <a href=\"https://github.com/KaizokuBento/AvaburTFD/raw/master/The_Flying_Dutchmen_Script.user.js\" target=\"_blank\">Update</a> | <a href=\"https://github.com/KaizokuBento/notifications-of-avabur/commits/master\" target=\"_blank\">Changelog</a></li>";
+								// TODO: Handle chat direction like ToA does
+								$("#chatMessageList").prepend(message);
+                            } else {
+                                setTimeout(fn.backwork.checkForUpdate, VARIABLES.checkForUpdateTimer);
+                            }
+                        });
 				},
 
 				loadSettings() { // initial settings on first run and setting the variable settings key
